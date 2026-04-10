@@ -1,113 +1,203 @@
 # gadogestor-audio-transcription
 
-Audio transcription microservice for GadoGestor. Receives audio binary via multipart upload and transcribes it using Google Gemini.
+Microsserviço de transcrição de áudio para o GadoGestor. Recebe arquivos de áudio via upload multipart e transcreve usando o Google Gemini. Opcionalmente enriquece a transcrição com resumo, pontos-chave e sentimento.
 
-## Architecture
+## Índice
 
-This service is called exclusively by `gadogestor-whatsapp`. It never communicates directly with WhatsApp or Meta APIs.
+- [Papel no sistema](#papel-no-sistema)
+- [Fluxo de integração](#fluxo-de-integração)
+- [API](#api)
+- [Stack](#stack)
+- [Configuração](#configuração)
+- [Execução local](#execução-local)
+- [Docker](#docker)
+- [Testes](#testes)
+- [Formatos suportados](#formatos-suportados)
+
+---
+
+## Papel no sistema
+
+Este serviço é chamado exclusivamente pelo [`gadogestor-whatsapp`](https://github.com/ginga-tech/gadogestor-whatsapp). Ele não se comunica diretamente com a API do WhatsApp (Meta) — jamais recebe nem armazena credenciais Meta.
+
+**Responsabilidade única:** receber um binário de áudio e devolver o texto transcrito.
+
+---
+
+## Fluxo de integração
 
 ```
 gadogestor-whatsapp
   │
-  │  1. Resolve media_id → Meta CDN URL  (Meta Graph API, Bearer token)
-  │  2. Download audio binary            (Meta CDN, Bearer token)
-  │  3. POST /transcribe multipart       (this service)
+  │  1. Recebe webhook Meta com AudioMediaId
+  │
+  │  2. GET https://graph.facebook.com/v21.0/{mediaId}
+  │     Authorization: Bearer {AccessToken}          ← token Meta fica aqui
+  │     → { "url": "https://cdn.whatsapp.net/...", "mime_type": "audio/ogg" }
+  │
+  │  3. GET {cdn_url}
+  │     Authorization: Bearer {AccessToken}          ← token Meta fica aqui
+  │     → Stream (binário do áudio)
+  │
+  │  4. POST http://localhost:8082/transcribe
+  │     Content-Type: multipart/form-data
+  │     field "audio" = binário
+  │                                                  ← nenhum token Meta enviado
   ▼
 gadogestor-audio-transcription
   │
-  │  4. Transcribe with Google Gemini
-  └──► { transcript, language, audioDuration }
+  │  5. Recebe multipart, valida tamanho e tipo
+  │  6. Envia binário ao Google Gemini para transcrição
+  │  7. Opcionalmente gera resumo/pontos-chave/sentimento
+  │
+  └──► { "transcript": "...", "language": "pt-BR", "audioDuration": 12.3 }
 ```
 
-The Bearer token for Meta CDN stays in `gadogestor-whatsapp` and is never forwarded here.
+O Bearer token da Meta **fica no `gadogestor-whatsapp`** e nunca é repassado.
 
-## API Contract
+---
+
+## API
 
 ### POST /transcribe
 
-**Request:** `multipart/form-data` with field `audio` (binary audio file)
+Transcreve um arquivo de áudio.
 
-Supported formats: `mp3`, `mp4`, `wav`, `m4a`, `ogg`, `webm`, `flac` — max 25 MB
+**Request**
 
-**Response 201:**
+```
+Content-Type: multipart/form-data
+field: audio  (binário do arquivo de áudio)
+```
+
+**Response 201 — sucesso**
+
 ```json
 {
-  "transcript": "a vaca 234 está com mastite",
+  "audioFilename": "msg-abc123.ogg",
+  "fileSizeBytes": 48320,
+  "transcript": "a vaca 234 está com mastite, apliquei oxitetraciclina",
   "language": "pt-BR",
-  "audioDuration": 12.3
+  "audioDuration": 12.3,
+  "summary": "Relato de tratamento de mastite na vaca 234.",
+  "keyPoints": ["mastite", "vaca 234", "oxitetraciclina"],
+  "sentiment": "neutral",
+  "createdAt": "2026-04-10T14:30:00Z"
 }
 ```
 
-| Status | Meaning |
-|--------|---------|
-| `201` | Transcription successful |
-| `400` | Missing `audio` field |
-| `413` | File exceeds size limit |
-| `502` | Gemini transcription failure |
-| `503` | Gemini not configured (`GEMINI_API_KEY` missing) |
+Os campos `summary`, `keyPoints` e `sentiment` são opcionais e preenchidos somente quando `ENABLE_TRANSCRIPT_ANALYSIS=true`. O serviço retorna a transcrição mesmo que o enriquecimento falhe.
+
+**Códigos de status**
+
+| Status | Significado |
+|--------|-------------|
+| `201` | Transcrição concluída |
+| `400` | Campo `audio` ausente no multipart |
+| `413` | Arquivo excede o limite de tamanho (padrão: 25 MB) |
+| `500` | Erro interno |
+| `502` | Falha do Gemini na transcrição |
+| `503` | Gemini não configurado — `GEMINI_API_KEY` ausente |
+
+---
 
 ### GET /health
 
+Verifica se o serviço está no ar.
+
+**Response 200**
 ```json
 { "status": "ok" }
 ```
 
+---
+
 ### GET /swagger/*
 
-Swagger UI for interactive API documentation.
+Interface Swagger UI para explorar e testar a API interativamente.
+
+---
 
 ## Stack
 
-| Layer | Technology |
+| Camada | Tecnologia |
 |---|---|
-| HTTP Server | Go standard `net/http` |
-| Transcription | Google Gemini API |
-| API Docs | Swagger via `swaggo/swag` |
-| Config | Environment variables |
+| HTTP Server | Go `net/http` padrão |
+| Transcrição | Google Gemini API (`gemini-2.5-flash` por padrão) |
+| Enriquecimento (opcional) | Google Gemini API |
+| Documentação | Swagger via `swaggo/swag` |
+| Configuração | Variáveis de ambiente |
 
-## Getting Started
+---
 
-### Prerequisites
+## Configuração
+
+| Variável | Descrição | Padrão |
+|---|---|---|
+| `GEMINI_API_KEY` | Chave da API do Google Gemini | **obrigatória** |
+| `GEMINI_MODEL` | Modelo Gemini a usar | `gemini-2.5-flash` |
+| `ENABLE_TRANSCRIPT_ANALYSIS` | Ativa resumo, pontos-chave e sentimento | `false` |
+| `PORT` | Porta HTTP de escuta | `8080` |
+| `RAILWAY_PUBLIC_DOMAIN` | Domínio público (Railway) — usado no Swagger | — |
+
+Se `GEMINI_API_KEY` estiver ausente, o servidor sobe normalmente mas `POST /transcribe` retorna `503 Service Unavailable`. Isso evita restart loops em containers.
+
+---
+
+## Execução local
+
+### Pré-requisitos
 
 - Go 1.21+
 - Google Gemini API key
 
-### Configuration
-
-| Variable | Description | Default |
-|---|---|---|
-| `GEMINI_API_KEY` | Google Gemini API key | required |
-| `GEMINI_MODEL` | Gemini model to use | `gemini-2.5-flash` |
-| `ENABLE_TRANSCRIPT_ANALYSIS` | Enable summary/key points/sentiment | `false` |
-| `PORT` | HTTP listen port | `8080` |
-
-If `GEMINI_API_KEY` is missing, the server still starts but `POST /transcribe` returns `503 Service Unavailable`.
-
-### Run
+### Rodar
 
 ```bash
-export GEMINI_API_KEY="your-gemini-key"
+export GEMINI_API_KEY="sua-chave-gemini"
 go run ./cmd/server
 ```
 
-### Test the API
+O servidor sobe em `http://localhost:8080`.
+
+### Testar manualmente
 
 ```bash
-# Healthcheck
+# Health check
 curl http://localhost:8080/health
 
-# Transcribe an audio file
+# Transcrever um arquivo de áudio
 curl -X POST http://localhost:8080/transcribe \
-  -F "audio=@path/to/audio.ogg"
+  -F "audio=@caminho/para/audio.ogg"
 ```
 
-## Development
+---
+
+## Docker
+
+```bash
+# Build
+docker build -t gadogestor-audio-transcription .
+
+# Run
+docker run -p 8082:8080 \
+  -e GEMINI_API_KEY=sua-chave-gemini \
+  gadogestor-audio-transcription
+```
+
+> O `gadogestor-whatsapp` aponta por padrão para `http://localhost:8082` (`Transcription:BaseUrl`). Ajuste conforme o ambiente de deployment.
+
+---
+
+## Testes
 
 ```bash
 go test ./...
 go vet ./...
 ```
 
-## Supported Audio Formats
+---
 
-`mp3`, `mp4`, `mpeg`, `mpga`, `m4a`, `wav`, `webm`, `ogg`, `flac`
+## Formatos suportados
+
+`mp3`, `mp4`, `mpeg`, `mpga`, `m4a`, `wav`, `webm`, `ogg`, `flac` — até **25 MB**.
