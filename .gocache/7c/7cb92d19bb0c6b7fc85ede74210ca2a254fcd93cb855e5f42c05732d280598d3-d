@@ -1,0 +1,4 @@
+./disabled.go
+./gemini.go
+./transcriber.go
+./gemini_test.go

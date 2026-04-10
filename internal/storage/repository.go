@@ -4,7 +4,7 @@ package storage
 import (
 	"context"
 
-	"github.com/rfulgencio3/go-audio-transcription/internal/domain"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/domain"
 )
 
 // Repository persists and retrieves TranscriptionRecords.

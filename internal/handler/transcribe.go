@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/rfulgencio3/go-audio-transcription/internal/ai"
-	"github.com/rfulgencio3/go-audio-transcription/internal/domain"
-	"github.com/rfulgencio3/go-audio-transcription/internal/transcription"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/ai"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/domain"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/transcription"
 )
 
 // ErrorResponse represents a standardized error returned by the API.

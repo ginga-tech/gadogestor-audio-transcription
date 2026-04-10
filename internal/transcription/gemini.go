@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/generative-ai-go/genai"
-	"github.com/rfulgencio3/go-audio-transcription/internal/geminiutil"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/geminiutil"
 	"google.golang.org/api/option"
 )
 

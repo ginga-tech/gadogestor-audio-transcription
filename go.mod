@@ -1,4 +1,4 @@
-module github.com/rfulgencio3/go-audio-transcription
+module github.com/ginga-tech/gadogestor-audio-transcription
 
 go 1.25.0
 

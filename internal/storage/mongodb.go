@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rfulgencio3/go-audio-transcription/internal/domain"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/domain"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"

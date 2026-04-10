@@ -21,11 +21,11 @@ import (
 
 	httpSwagger "github.com/swaggo/http-swagger"
 
-	"github.com/rfulgencio3/go-audio-transcription/config"
-	"github.com/rfulgencio3/go-audio-transcription/docs"
-	"github.com/rfulgencio3/go-audio-transcription/internal/ai"
-	"github.com/rfulgencio3/go-audio-transcription/internal/handler"
-	"github.com/rfulgencio3/go-audio-transcription/internal/transcription"
+	"github.com/ginga-tech/gadogestor-audio-transcription/config"
+	"github.com/ginga-tech/gadogestor-audio-transcription/docs"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/ai"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/handler"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/transcription"
 )
 
 func main() {

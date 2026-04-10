@@ -11,9 +11,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/rfulgencio3/go-audio-transcription/internal/ai"
-	"github.com/rfulgencio3/go-audio-transcription/internal/handler"
-	"github.com/rfulgencio3/go-audio-transcription/internal/transcription"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/ai"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/handler"
+	"github.com/ginga-tech/gadogestor-audio-transcription/internal/transcription"
 )
 
 // --- Mock implementations ---
